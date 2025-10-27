@@ -9,6 +9,7 @@ import json
 import gzip
 from mqt.bench import get_benchmark, BenchmarkLevel
 from collections import defaultdict
+import concurrent.futures
 
 def Databuild(n_samples, backend_name = 'ibm_brisbane',hard_probs=(0.65,0.35)
               ,circuit_probs=(0.5,0.5),prob_depth=(0.2,0.3,0.3,0.2),save_path="../../Dataset"):
@@ -44,19 +45,19 @@ def Databuild(n_samples, backend_name = 'ibm_brisbane',hard_probs=(0.65,0.35)
 
 def Sampling_output_hardware(backend_name, sample_folder, hard_probs=(0.65,0.35)):
     hard_tier = np.random.choice(['Real','Customized'],p=hard_probs)
-    print(f"Selected hardware tier: {hard_tier}")
+#    print(f"Selected hardware tier: {hard_tier}")
     if hard_tier == 'Real':
         # Load your saved IBM Quantum account
         service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder")
         backend = service.backend(backend_name)
-        Output_real_hardware(backend,sample_folder)
+        Output_real_hardware(backend,sample_folder,hard_tier)
     elif hard_tier == 'Customized':
-        backend = CustomizedBackend(backend_name,sample_folder)
+        backend = CustomizedBackend(backend_name,sample_folder,hard_tier)
     
     return backend
         
     
-def CustomizedBackend(backend_name, sample_folder):
+def CustomizedBackend(backend_name, sample_folder,hard_tier):
     service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder")
     backend = service.backend(backend_name)
     props = backend.properties()
@@ -195,6 +196,7 @@ def CustomizedBackend(backend_name, sample_folder):
 
     #Create json file
     hardware_data = {
+        "tier": hard_tier,
         "processor_type": f"{backend.configuration().processor_type['family']} {backend.configuration().processor_type['revision']}",
         "n_qubits": n_qubits,
         "basis_gates": basis_gates,
@@ -217,7 +219,7 @@ def CustomizedBackend(backend_name, sample_folder):
     
     return backend
 
-def Output_real_hardware(backend, sample_folder):
+def Output_real_hardware(backend, sample_folder, hard_tier):
     props = backend.properties()
     n_qubits = len(props.qubits)
     # Extract qubit properties
@@ -270,6 +272,7 @@ def Output_real_hardware(backend, sample_folder):
 
     #Create json file
     hardware_data = {
+        "tier": hard_tier,
         "processor_type": f"{backend.configuration().processor_type['family']} {backend.configuration().processor_type['revision']}",
         "n_qubits": n_qubits,
         "basis_gates": basis_gates,
@@ -291,16 +294,16 @@ def Output_real_hardware(backend, sample_folder):
 def Sampling_output_circuit(backend, sample_folder,circuit_probs,prob_depth):
     # Choice of circuit size
     circuit_tier = np.random.choice(['Famous','Random'],p = circuit_probs)
-    print(f"Selected circuit tier: {circuit_tier}") 
+#    print(f"Selected circuit tier: {circuit_tier}") 
     if circuit_tier == 'Famous':
-        circuit = Generate_famous_circuit(backend)
+        circuit, algo_info = Generate_famous_circuit(backend)
         if circuit is None:
             print("Famous circuit generation failed, generating a Random circuit instead.")
-            circuit = Generate_random_circuit(backend,prob_depth)
+            circuit, algo_info = Generate_random_circuit(backend,prob_depth)
     elif circuit_tier == 'Random':
-        circuit = Generate_random_circuit(backend,prob_depth)
+        circuit, algo_info = Generate_random_circuit(backend,prob_depth)
     
-    Output_circuit(circuit,sample_folder,backend)
+    Output_circuit(circuit,sample_folder,backend,circuit_tier,algo_info)
     return circuit
 
 def Generate_famous_circuit(backend,max_attempts=3):
@@ -347,10 +350,13 @@ def Generate_famous_circuit(backend,max_attempts=3):
     
         try:
             qc = get_benchmark(algo, circuit_size=n_qubits, level=BenchmarkLevel.INDEP)
-            print(f"Selected algorithm: {algo}")
-            print(f"Number of qubits for the circuit: {n_qubits}")
-            qc_perm = random_qubit_permutation(qc)
-            return qc_perm
+            algo_info = []
+            algo_info.append(f"Algorithm: {algo}, Qubits: {n_qubits}")
+#            print(f"Selected algorithm: {algo}")
+#            print(f"Number of qubits for the circuit: {n_qubits}")
+            qc_perm, n_perm, perm = random_qubit_permutation(qc)
+            algo_info.append(f"Number of Qubit permutation: {n_perm} qubits permuted, Permutation: {perm}")
+            return qc_perm, algo_info
 
         except Exception as e:
             continue  # Try another algorithm
@@ -370,7 +376,7 @@ def random_qubit_permutation(qc, seed=None):
 
     # Step 1 — choose how many qubits will be permuted (at least 2)
     k = rng.integers(2, n_qubits + 1) if n_qubits >= 2 else 1
-    print(f"Number of qubits to permute: {k}")
+#    print(f"Number of qubits to permute: {k}")
 
     # Step 2 — choose which qubits are permuted
     permuted_indices = rng.choice(n_qubits, size=k, replace=False)
@@ -399,17 +405,19 @@ def random_qubit_permutation(qc, seed=None):
         new_cargs = [qc_perm.clbits[qc.find_bit(c).index] for c in cargs]
         qc_perm.append(inst, new_qargs, new_cargs)
 
-    return qc_perm
+    return qc_perm, k, perm
 
 def Generate_random_circuit(backend,prob_depth=(0.2,0.3,0.3,0.2)):
     # Get the number of qubits of the hardware
     n_qubits_hardware = backend.configuration().n_qubits
     # Determine number of qubits
     n_qubits = np.random.randint(3, n_qubits_hardware+1)
-    print(f"Number of qubits for the random circuit: {n_qubits}")
+    algo_info = []
+    algo_info.append(f"Qubits: {n_qubits}")
+ #   print(f"Number of qubits for the random circuit: {n_qubits}")
     # Determine depth
     tier_depth = np.random.choice(['Shallow','Medium','Deep','Very_deep'], p=prob_depth)
-    print(f"Selected depth tier: {tier_depth}")
+#    print(f"Selected depth tier: {tier_depth}")
     if tier_depth == 'Shallow':
         depth = np.random.randint(5, 21)
     elif tier_depth == 'Medium':
@@ -419,12 +427,13 @@ def Generate_random_circuit(backend,prob_depth=(0.2,0.3,0.3,0.2)):
     elif tier_depth == 'Very_deep':
         depth = np.random.randint(201, 501) 
     
-    print(f"Depth of the random circuit: {depth}")
+#    print(f"Depth of the random circuit: {depth}")
+    algo_info.append(f"Depth: {depth}")
     # Generate random circuit
     qc = random_circuit(n_qubits, depth)
-    return qc
+    return qc, algo_info
 
-def Output_circuit(circuit, sample_folder, backend):
+def Output_circuit(circuit, sample_folder, backend,circuit_tier,algo_info):
     #Decompose to basis gates
     basis_gates = backend.configuration().basis_gates
     
@@ -471,6 +480,8 @@ def Output_circuit(circuit, sample_folder, backend):
     # Prepare final dictionary
     # --------------------------------------------------
     circuit_data = {
+        "circuit_tier": circuit_tier,
+        "algorithm_info": algo_info,
         "n_logical_qubits": n_log_qubits,
         "depth": transpiled_qc.depth(),
         "single_qubit_counts": {gate: counts.tolist() for gate, counts in single_qubit_counters.items()},

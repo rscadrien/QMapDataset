@@ -1,9 +1,9 @@
 import os
-from Dataset_build import Databuild 
+from Dataset_build import Databuild
 # ---------------------------------
 # 1. Define dataset parameters
 # ---------------------------------
-n_samples = 1                # number of samples to generate
+n_samples = 5                # number of samples to generate
 backend_name = "ibm_brisbane" # IBM backend to use
 hard_probs = (0.65, 0.35)       # probability of Real vs Customized backend
 circuit_probs = (0.5, 0.5)    # probability of Famous vs Random circuits
