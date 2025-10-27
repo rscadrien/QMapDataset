@@ -62,232 +62,191 @@ def CustomizedBackend(backend_name, sample_folder,hard_tier):
     backend = service.backend(backend_name)
     props = backend.properties()
     n_qubits = len(props.qubits)
+    # --------------------------------------------------
     # Extract qubit properties
-    T1 = np.zeros(n_qubits)
-    T2 = np.zeros(n_qubits)
-    freq = np.zeros(n_qubits)
-    anha = np.zeros(n_qubits)
-    prob_01 = np.zeros(n_qubits)
-    prob_10 = np.zeros(n_qubits)
-    readout_error = np.zeros(n_qubits)
+    # --------------------------------------------------
+    qubit_props = {name: np.zeros(n_qubits) for name in ["T1", "T2", "frequency", "anharmonicity", "readout_error","prob_meas0_prep1", "prob_meas1_prep0"]}
+
     for i, qubit_data in enumerate(props.qubits):
         for item in qubit_data:
-            if item.name == "T1":
-                T1[i] = item.value
-            elif item.name == "T2":
-                T2[i] = item.value
-            elif item.name == "frequency":
-                freq[i] = item.value
-            elif item.name == "anharmonicity":
-                anha[i] = item.value
-            elif item.name == "readout_error":
-                readout_error[i] = item.value
-            elif item.name == "prob_meas0_prep1":
-                prob_01[i] = item.value
-            elif item.name == "prob_meas1_prep0":
-                prob_10[i] = item.value
+            if item.name in qubit_props:
+                qubit_props[item.name][i] = item.value
     
-    #Infor for the single qubit error and length
-    id_error = np.zeros(n_qubits)
-    rz_error = np.zeros(n_qubits)
-    sx_error = np.zeros(n_qubits)
-    x_error = np.zeros(n_qubits)
+    # --------------------------------------------------
+    # Extract gate errors dynamically
+    # --------------------------------------------------
+    single_qubit_errors = defaultdict(lambda: np.zeros(n_qubits))
+    multi_qubit_errors = defaultdict(list)  # store values for multi-qubit gates like 'ecr'
 
+    for gate_data in props.gates:
+        qubits = gate_data.qubits
+        gate_name = gate_data.gate
+        value = gate_data.parameters[0].value  # assuming first parameter is the error
+        if len(qubits) == 1:
+            single_qubit_errors[gate_name][qubits[0]] = value
+        else:
+            multi_qubit_errors[gate_name].append(value)
 
-    for i, gate_data in enumerate(props.gates):
-        if gate_data.gate == "id":
-            k = gate_data.qubits[0]
-            id_error[k] = gate_data.parameters[0].value
-        elif gate_data.gate == "rz":
-            k = gate_data.qubits[0]
-            rz_error[k] = gate_data.parameters[0].value
-        elif gate_data.gate == "sx":
-            k = gate_data.qubits[0]
-            sx_error[k] = gate_data.parameters[0].value
-        elif gate_data.gate == "x":
-            k = gate_data.qubits[0]
-            x_error[k] = gate_data.parameters[0].value
-    
-    #Info for two-qubit gates
-    ecr_error = []
-    for i, gate_data in enumerate(props.gates):
-        if gate_data.gate == "ecr":
-            ecr_error.append(gate_data.parameters[0].value)
-
-    #Create new backend
+    # --------------------------------------------------
+    # Deep copy backend and permute qubits
+    # --------------------------------------------------
     new_backend = copy.deepcopy(backend)
-
-    #Permutation of qubits
     perm = np.random.permutation(n_qubits)
-    new_T1 =  T1[perm]
-    new_T2 =  T2[perm]
-    new_freq =  freq[perm]
-    new_anha =  anha[perm]
-    new_readout_error =  readout_error[perm]
-    new_prob_01 =  prob_01[perm]
-    new_prob_10 =  prob_10[perm]
-    new_id_error =  id_error[perm]
-    new_rz_error =  rz_error[perm]
-    new_sx_error =  sx_error[perm]
-    new_x_error =  x_error[perm]
-    new_ecr_error =  np.random.permutation(ecr_error)
+
+    # Permute qubit properties
+    for key in qubit_props:
+        qubit_props[key] = qubit_props[key][perm]
+
+    # Permute single-qubit errors
+    for key in single_qubit_errors:
+        single_qubit_errors[key] = single_qubit_errors[key][perm]
+
+    # Permute multi-qubit errors (shuffle list)
+    for key in multi_qubit_errors:
+        multi_qubit_errors[key] = np.random.permutation(multi_qubit_errors[key])
     
+    # --------------------------------------------------
+    # Assign new values back to backend properties
+    # --------------------------------------------------
     new_props = new_backend.properties()
 
-    #Assign new values to qubits
+    # Qubit properties
     for i, qubit_data in enumerate(new_props.qubits):
         for item in qubit_data:
-            if item.name == "T1":
-                item.value = new_T1[i]
-            elif item.name == "T2":
-                item.value = new_T2[i]
-            elif item.name == "frequency":
-                item.value = new_freq[i]
-            elif item.name == "anharmonicity":
-                item.value = new_anha[i]
-            elif item.name == "readout_error":
-                item.value = new_readout_error[i]
-            elif item.name == "prob_meas0_prep1":
-                item.value = new_prob_01[i]
-            elif item.name == "prob_meas1_prep0":
-                item.value = new_prob_10[i]
-    
-    #Assign new values to gates
-    for i, gate_data in enumerate(new_props.gates):
-        if gate_data.gate == "id":
-            k = gate_data.qubits[0]
-            gate_data.parameters[0].value = new_id_error[k]
-        elif gate_data.gate == "rz":
-            k = gate_data.qubits[0]
-            gate_data.parameters[0].value = new_rz_error[k]
-        elif gate_data.gate == "sx":
-            k = gate_data.qubits[0]
-            gate_data.parameters[0].value = new_sx_error[k]
-        elif gate_data.gate == "x":
-            k = gate_data.qubits[0]
-            gate_data.parameters[0].value = new_x_error[k]
-    
-    #Assign new values to two-qubit gates
-    k=0
-    for i, gate_data in enumerate(new_props.gates):
-        if gate_data.gate == "ecr":
-            gate_data.parameters[0].value = new_ecr_error[k]
-            k= k+1
-    
-    ecr_error_array = np.zeros((n_qubits,n_qubits))
-    #Info for gates
-    for i, gate_data in enumerate(props.gates):
-            if gate_data.gate == "ecr":
-                q0, q1 = gate_data.qubits
-                ecr_error_array[q0,q1] = gate_data.parameters[0].value
-        
-    nonzero_indices = np.nonzero(ecr_error_array)
-    nonzero_values = ecr_error_array[nonzero_indices]
-    # Store as a list of dictionaries
-    sparse_ecr = [
-        {"row": int(r), "col": int(c), "value": float(v)}
-        for r, c, v in zip(nonzero_indices[0], nonzero_indices[1], nonzero_values)
-    ]
-    new_backend._properties = new_props
-    backend = new_backend
-    #Getting coupling map and basis gates
-    coupling_map = backend.configuration().coupling_map
-    basis_gates = backend.configuration().basis_gates
+            if item.name in qubit_props:
+                item.value = qubit_props[item.name][i]
 
-    #Create json file
+    # Gate properties
+    multi_gate_counters = {key: 0 for key in multi_qubit_errors}  # track index when assigning
+    for gate_data in new_props.gates:
+        qubits = gate_data.qubits
+        gate_name = gate_data.gate
+        if len(qubits) == 1:
+            gate_data.parameters[0].value = single_qubit_errors[gate_name][qubits[0]]
+        else:
+            idx = multi_gate_counters[gate_name]
+            gate_data.parameters[0].value = multi_qubit_errors[gate_name][idx]
+            multi_gate_counters[gate_name] += 1
+
+    new_backend._properties = new_props
+    
+    # --------------------------------------------------
+    # Prepare JSON-friendly sparse representation for multi-qubit gates
+    # --------------------------------------------------
+    sparse_multi_qubit = {}
+    for gate_name, values in multi_qubit_errors.items():
+        error_array = np.zeros((n_qubits, n_qubits))
+        idx = 0
+        for gate_data in props.gates:
+            if gate_data.gate == gate_name and len(gate_data.qubits) > 1:
+                q0, q1 = gate_data.qubits
+                error_array[q0, q1] = gate_data.parameters[0].value
+                idx += 1
+        rows, cols = np.nonzero(error_array)
+        sparse_multi_qubit[gate_name] = [
+            {"row": int(r), "col": int(c), "value": float(v)}
+            for r, c, v in zip(rows, cols, error_array[rows, cols])
+        ]
+
+    # --------------------------------------------------
+    # Create hardware JSON
+    # --------------------------------------------------
     hardware_data = {
         "tier": hard_tier,
         "processor_type": f"{backend.configuration().processor_type['family']} {backend.configuration().processor_type['revision']}",
         "n_qubits": n_qubits,
-        "basis_gates": basis_gates,
-        "coupling_map": coupling_map,
-        "T1": new_T1.tolist(),
-        "T2": new_T2.tolist(),
-        "readout_error": new_readout_error.tolist(),
-        "id_error": new_id_error.tolist(),
-        "rz_error": new_rz_error.tolist(),
-        "sx_error": new_sx_error.tolist(),
-        "x_error": new_x_error.tolist(),
-        "ecr_error": sparse_ecr,
+        "basis_gates": backend.configuration().basis_gates,
+        "coupling_map": backend.configuration().coupling_map,
     }
 
-    # assuming `sample_folder` is something like "../../Dataset/Sample_5"
-    file_path = os.path.join(sample_folder, "hardware.json")
+    # Add qubit properties
+    hardware_data.update({k: v.tolist() for k, v in qubit_props.items()})
 
+    # Add single-qubit errors
+    for k, v in single_qubit_errors.items():
+        hardware_data[f"{k}_error"] = v.tolist()
+
+    # Add multi-qubit sparse errors
+    hardware_data.update(sparse_multi_qubit)
+
+    # --------------------------------------------------
+    # Save JSON compressed
+    # --------------------------------------------------
+    file_path = os.path.join(sample_folder, "hardware.json")
     with gzip.open(file_path + ".gz", "wt", encoding="utf-8") as f:
         json.dump(hardware_data, f, indent=2)
-    
-    return backend
+
+    return new_backend
 
 def Output_real_hardware(backend, sample_folder, hard_tier):
     props = backend.properties()
     n_qubits = len(props.qubits)
-    # Extract qubit properties
-    T1 = np.zeros(n_qubits)
-    T2 = np.zeros(n_qubits)
-    readout_error = np.zeros(n_qubits)
+
+    # --------------------------------------------------
+    # Extract qubit properties dynamically
+    # --------------------------------------------------
+    qubit_props = {name: np.zeros(n_qubits) for name in ["T1", "T2", "readout_error",
+                                                        "prob_meas0_prep1", "prob_meas1_prep0",
+                                                        "frequency", "anharmonicity"]}
+
     for i, qubit_data in enumerate(props.qubits):
         for item in qubit_data:
-            if item.name == "T1":
-                T1[i] = item.value
-            elif item.name == "T2":
-                T2[i] = item.value
-            elif item.name == "readout_error":
-                readout_error[i] = item.value
-    
-    id_error = np.zeros(n_qubits)
-    rz_error = np.zeros(n_qubits)
-    sx_error = np.zeros(n_qubits)
-    x_error = np.zeros(n_qubits)
-    ecr_error = np.zeros((n_qubits,n_qubits))
+            if item.name in qubit_props:
+                qubit_props[item.name][i] = item.value
 
-    #Info for gates
-    for i, gate_data in enumerate(props.gates):
-        if gate_data.gate == "id":
-            k = gate_data.qubits[0]
-            id_error[k] = gate_data.parameters[0].value
-        elif gate_data.gate == "rz":
-            k = gate_data.qubits[0]
-            rz_error[k] = gate_data.parameters[0].value
-        elif gate_data.gate == "sx":
-            k = gate_data.qubits[0]
-            sx_error[k] = gate_data.parameters[0].value
-        elif gate_data.gate == "x":
-            k = gate_data.qubits[0]
-            x_error[k] = gate_data.parameters[0].value
-        elif gate_data.gate == "ecr":
-            q0, q1 = gate_data.qubits
-            ecr_error[q0,q1] = gate_data.parameters[0].value
-    
-    nonzero_indices = np.nonzero(ecr_error)
-    nonzero_values = ecr_error[nonzero_indices]
-    # Store as a list of dictionaries
-    sparse_ecr = [
-        {"row": int(r), "col": int(c), "value": float(v)}
-        for r, c, v in zip(nonzero_indices[0], nonzero_indices[1], nonzero_values)
-    ]
-    #Getting coupling map and basis gates
-    coupling_map = backend.configuration().coupling_map
-    basis_gates = backend.configuration().basis_gates
+    # --------------------------------------------------
+    # Extract gate errors dynamically
+    # --------------------------------------------------
+    single_qubit_errors = defaultdict(lambda: np.zeros(n_qubits))
+    multi_qubit_errors = defaultdict(lambda: np.zeros((n_qubits, n_qubits)))
 
-    #Create json file
+    for gate_data in props.gates:
+        qubits = gate_data.qubits
+        gate_name = gate_data.gate
+        value = gate_data.parameters[0].value  # first parameter is usually the error
+        if len(qubits) == 1:
+            single_qubit_errors[gate_name][qubits[0]] = value
+        else:
+            q0, q1 = qubits
+            multi_qubit_errors[gate_name][q0, q1] = value
+
+    # --------------------------------------------------
+    # Convert multi-qubit errors to sparse format
+    # --------------------------------------------------
+    sparse_multi_qubit = {}
+    for gate_name, matrix in multi_qubit_errors.items():
+        rows, cols = np.nonzero(matrix)
+        values = matrix[rows, cols]
+        sparse_multi_qubit[gate_name] = [
+            {"row": int(r), "col": int(c), "value": float(v)}
+            for r, c, v in zip(rows, cols, values)
+        ]
+
+    # --------------------------------------------------
+    # Build final hardware dictionary
+    # --------------------------------------------------
     hardware_data = {
         "tier": hard_tier,
         "processor_type": f"{backend.configuration().processor_type['family']} {backend.configuration().processor_type['revision']}",
         "n_qubits": n_qubits,
-        "basis_gates": basis_gates,
-        "coupling_map": coupling_map,
-        "T1": T1.tolist(),
-        "T2": T2.tolist(),
-        "readout_error": readout_error.tolist(),
-        "id_error": id_error.tolist(),
-        "rz_error": rz_error.tolist(),
-        "sx_error": sx_error.tolist(),
-        "x_error": x_error.tolist(),
-        "ecr_error": sparse_ecr,
+        "basis_gates": backend.configuration().basis_gates,
+        "coupling_map": backend.configuration().coupling_map,
     }
-    # assuming `sample_folder` is something like "../../Dataset/Sample_5"
-    file_path = os.path.join(sample_folder, "hardware.json")    
+
+    # Add qubit properties
+    hardware_data.update({k: v.tolist() for k, v in qubit_props.items()})
+
+    # Add single-qubit errors
+    for k, v in single_qubit_errors.items():
+        hardware_data[f"{k}_error"] = v.tolist()
+
+    # Add multi-qubit sparse errors
+    hardware_data.update(sparse_multi_qubit)
+
+    # --------------------------------------------------
+    # Save JSON compressed
+    # --------------------------------------------------
+    file_path = os.path.join(sample_folder, "hardware.json")
     with gzip.open(file_path + ".gz", "wt", encoding="utf-8") as f:
         json.dump(hardware_data, f, indent=2)
 
