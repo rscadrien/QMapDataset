@@ -8,6 +8,7 @@ import copy
 import json
 import gzip
 from mqt.bench import get_benchmark, BenchmarkLevel
+from collections import defaultdict
 
 def Databuild(n_samples, backend_name = 'ibm_brisbane',hard_probs=(0.65,0.35)
               ,circuit_probs=(0.5,0.5),prob_depth=(0.2,0.3,0.3,0.2),save_path="../../Dataset"):
@@ -429,51 +430,57 @@ def Output_circuit(circuit, sample_folder, backend):
 
     n_log_qubits = transpiled_qc.num_qubits
 
-    #Counting the number of gates for each qubit
-    gate = 'x'
-    X_counts = np.zeros(n_log_qubits, dtype=int)
-    SX_counts = np.zeros(n_log_qubits, dtype=int)
-    RZ_counts = np.zeros(n_log_qubits, dtype=int)
-    ECR_counts = np.zeros((n_log_qubits, n_log_qubits), dtype=int)
+    # --------------------------------------------------
+    # Initialize dynamic counters
+    # --------------------------------------------------
+    # Single-qubit gates: dictionary of arrays
+    single_qubit_counters = defaultdict(lambda: np.zeros(n_log_qubits, dtype=int))
+    # Two-qubit gates: dictionary of matrices
+    two_qubit_counters = defaultdict(lambda: np.zeros((n_log_qubits, n_log_qubits), dtype=int))
 
 
+    # --------------------------------------------------
+    # Count gates dynamically
+    # --------------------------------------------------
     for instr in transpiled_qc.data:
-        if instr.name == 'x':
-            qubit_index = transpiled_qc.find_bit(instr.qubits[0]).index
-            X_counts[qubit_index] += 1
-        elif instr.name == 'sx':
-            qubit_index = transpiled_qc.find_bit(instr.qubits[0]).index
-            SX_counts[qubit_index] += 1
-        elif instr.name == 'rz':
-            qubit_index = transpiled_qc.find_bit(instr.qubits[0]).index
-            RZ_counts[qubit_index] += 1
-        elif instr.name == 'ecr':
-            i = transpiled_qc.find_bit(instr.qubits[0]).index
-            j = transpiled_qc.find_bit(instr.qubits[1]).index
-            ECR_counts[i, j] += 1
+        name = instr.name
+        qubits = [transpiled_qc.find_bit(q).index for q in instr.qubits]
+        
+        if len(qubits) == 1:
+            single_qubit_counters[name][qubits[0]] += 1
+        elif len(qubits) == 2:
+            i, j = qubits
+            two_qubit_counters[name][i, j] += 1
 
-    # Convert ECR_counts to sparse representation
-    nonzero_indices = np.nonzero(ECR_counts)
-    nonzero_values = ECR_counts[nonzero_indices]
-    # Store as a list of dictionaries
-    sparse_ecr_circuit = [
-        {"row": int(r), "col": int(c), "value": float(v)}
-        for r, c, v in zip(nonzero_indices[0], nonzero_indices[1], nonzero_values)
-    ]
-    #Create json file
+    # --------------------------------------------------
+    # Convert two-qubit counters to sparse JSON-friendly format
+    # --------------------------------------------------
+    sparse_two_qubit = {}
+    for gate, matrix in two_qubit_counters.items():
+        rows, cols = np.nonzero(matrix)
+        values = matrix[rows, cols]
+        sparse_two_qubit[gate] = [
+            {"row": int(r), "col": int(c), "value": float(v)}
+            for r, c, v in zip(rows, cols, values)
+        ]
+
+    # --------------------------------------------------
+    # Prepare final dictionary
+    # --------------------------------------------------
     circuit_data = {
         "n_logical_qubits": n_log_qubits,
         "depth": transpiled_qc.depth(),
-        "X_counts": X_counts.tolist(),
-        "SX_counts": SX_counts.tolist(),
-        "RZ_counts": RZ_counts.tolist(),
-        "ECR_counts": sparse_ecr_circuit,
+        "single_qubit_counts": {gate: counts.tolist() for gate, counts in single_qubit_counters.items()},
+        "two_qubit_counts": sparse_two_qubit,
     }
-    # assuming `sample_folder` is something like "../../Dataset/Sample_5"
+
+    # --------------------------------------------------
+    # Save as compressed JSON
+    # --------------------------------------------------
     file_path = os.path.join(sample_folder, "circuit.json")
     with gzip.open(file_path + ".gz", "wt", encoding="utf-8") as f:
-        json.dump(circuit_data, f, indent=2) 
-
+        json.dump(circuit_data, f, indent=2)
+        
 def Output_mapping(backend, circuit, sample_folder):
     n_log_qubits = circuit.num_qubits
     n_phys_qubits = backend.configuration().n_qubits
