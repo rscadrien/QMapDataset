@@ -299,7 +299,7 @@ def Sampling_output_circuit(backend_name, sample_folder,circuit_probs,prob_depth
     Output_circuit(circuit,sample_folder,backend_name)
     return circuit
 
-def Generate_famous_circuit(backend_name):
+def Generate_famous_circuit(backend_name,max_attempts=10):
     # --------------------------------------------------
     # Algorithm list with custom constraints
     # --------------------------------------------------
@@ -324,30 +324,37 @@ def Generate_famous_circuit(backend_name):
         "vqe_two_local": None,
         "wstate": None,
     }
-    # Select a random algorithm
-    algo = np.random.choice(list(ALGORITHMS.keys()))
-    print(f"Selected algorithm: {algo}")  
-    # Get constraints
-    constraints = ALGORITHMS[algo]
     # Get the number of qubits of the hardware
     service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder")
     backend = service.backend(backend_name)
     n_qubits_hardware = backend.configuration().n_qubits
-    # Determine number of qubits
-    if constraints is None:
-        n_qubits = np.random.randint(3, n_qubits_hardware)
-    else:
-        min_qubits, max_qubits = constraints
-        max_qubits = min(max_qubits, n_qubits_hardware)
-        n_qubits = np.random.randint(min_qubits, max_qubits + 1)
     
-    print(f"Number of qubits for the circuit: {n_qubits}")
+    for attempt in range(max_attempts):
+        # Select a random algorithm
+        algo = np.random.choice(list(ALGORITHMS.keys())) 
+        # Get constraints
+        constraints = ALGORITHMS[algo]
+        # Determine number of qubits
+        if constraints is None:
+            n_qubits = np.random.randint(3, n_qubits_hardware)
+        else:
+            min_qubits, max_qubits = constraints
+            max_qubits = min(max_qubits, n_qubits_hardware)
+            n_qubits = np.random.randint(min_qubits, max_qubits + 1)
     
-    # Generate the circuit
-    qc = get_benchmark(algo, circuit_size = n_qubits, level=BenchmarkLevel.INDEP)
-    qc_perm, perm = random_qubit_permutation(qc)
-    print(f"Applied random qubit permutation: {perm}")
-    return qc_perm
+    
+        try:
+            qc = get_benchmark(algo, circuit_size=n_qubits, level=BenchmarkLevel.INDEP)
+            print(f"Selected algorithm: {algo}")
+            print(f"Number of qubits for the circuit: {n_qubits}")
+            qc_perm = random_qubit_permutation(qc)
+            return qc_perm
+
+        except Exception as e:
+            print(f" ❌ Failed for {algo} ({n_qubits} qubits): {e}")
+            continue  # Try another algorithm
+
+    raise RuntimeError(f"Failed to generate a valid circuit after {max_attempts} attempts.")
 
 def random_qubit_permutation(qc, seed=None):
     """
@@ -390,7 +397,7 @@ def random_qubit_permutation(qc, seed=None):
         new_cargs = [qc_perm.clbits[qc.find_bit(c).index] for c in cargs]
         qc_perm.append(inst, new_qargs, new_cargs)
 
-    return qc_perm, perm
+    return qc_perm
 
 def Generate_random_circuit(backend_name,prob_depth=(0.2,0.3,0.3,0.2)):
     # Get the number of qubits of the hardware
