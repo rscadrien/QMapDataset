@@ -5,8 +5,8 @@ from qiskit.circuit.random import random_circuit
 import os
 import re
 import copy
-import json
 import gzip
+import msgpack
 from mqt.bench import get_benchmark, BenchmarkLevel
 
 def Databuild(n_samples, backend_name = 'ibm_brisbane',hard_probs=(0.65,0.35)
@@ -209,10 +209,10 @@ def CustomizedBackend(backend_name, sample_folder):
     }
 
     # assuming `sample_folder` is something like "../../Dataset/Sample_5"
-    file_path = os.path.join(sample_folder, "hardware.json")
+    file_path = os.path.join(sample_folder, "hardware.msgpack.gz")
 
-    with gzip.open(file_path + ".gz", "wt", encoding="utf-8") as f:
-        json.dump(hardware_data, f, indent=2)
+    with gzip.open(file_path, "wb") as f:  # binary mode!
+        msgpack.pack(hardware_data, f, use_bin_type=True)
     
     return backend
 
@@ -283,9 +283,9 @@ def Output_real_hardware(backend, sample_folder):
         "ecr_error": sparse_ecr,
     }
     # assuming `sample_folder` is something like "../../Dataset/Sample_5"
-    file_path = os.path.join(sample_folder, "hardware.json")    
-    with gzip.open(file_path + ".gz", "wt", encoding="utf-8") as f:
-        json.dump(hardware_data, f, indent=2)
+    file_path = os.path.join(sample_folder, "hardware.msgpack.gz") 
+    with gzip.open(file_path, "wb") as f:  # binary mode!
+        msgpack.pack(hardware_data, f, use_bin_type=True)
 
 def Sampling_output_circuit(backend_name, sample_folder,circuit_probs,prob_depth):
     # Choice of circuit size
@@ -478,9 +478,10 @@ def Output_circuit(circuit, sample_folder, backend_name):
         "ECR_counts": sparse_ecr_circuit,
     }
     # assuming `sample_folder` is something like "../../Dataset/Sample_5"
-    file_path = os.path.join(sample_folder, "circuit.json")
-    with gzip.open(file_path + ".gz", "wt", encoding="utf-8") as f:
-        json.dump(circuit_data, f, indent=2) 
+    file_path = os.path.join(sample_folder, "circuit.msgpack.gz")
+
+    with gzip.open(file_path, "wb") as f:  # binary mode!
+        msgpack.pack(circuit_data, f, use_bin_type=True)
 
 def Output_mapping(backend, circuit, sample_folder):
     n_log_qubits = circuit.num_qubits
@@ -496,8 +497,9 @@ def Output_mapping(backend, circuit, sample_folder):
         "n_physical_qubits": n_phys_qubits,
         "final_mapping": Final_layout,
     }   
-    # assuming `sample_folder` is something like "../../Dataset/Sample_5"
-    file_path = os.path.join(sample_folder, "mapping.json")
 
-    with gzip.open(file_path + ".gz", "wt", encoding="utf-8") as f:
-        json.dump(mapping_data, f, indent=2)
+    # assuming `sample_folder` is something like "../../Dataset/Sample_5"
+    file_path = os.path.join(sample_folder, "mapping.msgpack.gz")
+
+    with gzip.open(file_path, "wb") as f:  # binary mode!
+        msgpack.pack(mapping_data, f, use_bin_type=True)
