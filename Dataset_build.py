@@ -294,13 +294,16 @@ def Sampling_output_circuit(backend, sample_folder,circuit_probs,prob_depth):
     print(f"Selected circuit tier: {circuit_tier}") 
     if circuit_tier == 'Famous':
         circuit = Generate_famous_circuit(backend)
+        if circuit is None:
+            print("Famous circuit generation failed, generating a Random circuit instead.")
+            circuit = Generate_random_circuit(backend,prob_depth)
     elif circuit_tier == 'Random':
         circuit = Generate_random_circuit(backend,prob_depth)
     
     Output_circuit(circuit,sample_folder,backend)
     return circuit
 
-def Generate_famous_circuit(backend,max_attempts=10):
+def Generate_famous_circuit(backend,max_attempts=3):
     # --------------------------------------------------
     # Algorithm list with custom constraints
     # --------------------------------------------------
@@ -350,10 +353,10 @@ def Generate_famous_circuit(backend,max_attempts=10):
             return qc_perm
 
         except Exception as e:
-            print(f" ❌ Failed for {algo} ({n_qubits} qubits): {e}")
             continue  # Try another algorithm
 
-    raise RuntimeError(f"Failed to generate a valid circuit after {max_attempts} attempts.")
+    print(f"⚠️ Could not generate a valid famous circuit after {max_attempts} attempts.")
+    return None
 
 def random_qubit_permutation(qc, seed=None):
     """
@@ -480,7 +483,7 @@ def Output_circuit(circuit, sample_folder, backend):
     file_path = os.path.join(sample_folder, "circuit.json")
     with gzip.open(file_path + ".gz", "wt", encoding="utf-8") as f:
         json.dump(circuit_data, f, indent=2)
-        
+
 def Output_mapping(backend, circuit, sample_folder):
     n_log_qubits = circuit.num_qubits
     n_phys_qubits = backend.configuration().n_qubits
