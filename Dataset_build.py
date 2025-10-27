@@ -36,7 +36,7 @@ def Databuild(n_samples, backend_name = 'ibm_brisbane',hard_probs=(0.65,0.35)
         # Create new folder 
         os.makedirs(sample_folder, exist_ok=True)
         backend = Sampling_output_hardware(backend_name,sample_folder,hard_probs)
-        qc = Sampling_output_circuit(backend_name,sample_folder,circuit_probs,prob_depth)
+        qc = Sampling_output_circuit(backend,sample_folder,circuit_probs,prob_depth)
         Output_mapping(backend, qc, sample_folder)
         print(f"Sample {sample_num} created at {sample_folder}")
 
@@ -287,19 +287,19 @@ def Output_real_hardware(backend, sample_folder):
     with gzip.open(file_path + ".gz", "wt", encoding="utf-8") as f:
         json.dump(hardware_data, f, indent=2)
 
-def Sampling_output_circuit(backend_name, sample_folder,circuit_probs,prob_depth):
+def Sampling_output_circuit(backend, sample_folder,circuit_probs,prob_depth):
     # Choice of circuit size
     circuit_tier = np.random.choice(['Famous','Random'],p = circuit_probs)
     print(f"Selected circuit tier: {circuit_tier}") 
     if circuit_tier == 'Famous':
-        circuit = Generate_famous_circuit(backend_name)
+        circuit = Generate_famous_circuit(backend)
     elif circuit_tier == 'Random':
-        circuit = Generate_random_circuit(backend_name,prob_depth)
+        circuit = Generate_random_circuit(backend,prob_depth)
     
-    Output_circuit(circuit,sample_folder,backend_name)
+    Output_circuit(circuit,sample_folder,backend)
     return circuit
 
-def Generate_famous_circuit(backend_name,max_attempts=10):
+def Generate_famous_circuit(backend,max_attempts=10):
     # --------------------------------------------------
     # Algorithm list with custom constraints
     # --------------------------------------------------
@@ -325,8 +325,6 @@ def Generate_famous_circuit(backend_name,max_attempts=10):
         "wstate": None,
     }
     # Get the number of qubits of the hardware
-    service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder")
-    backend = service.backend(backend_name)
     n_qubits_hardware = backend.configuration().n_qubits
     
     for attempt in range(max_attempts):
@@ -399,10 +397,8 @@ def random_qubit_permutation(qc, seed=None):
 
     return qc_perm
 
-def Generate_random_circuit(backend_name,prob_depth=(0.2,0.3,0.3,0.2)):
+def Generate_random_circuit(backend,prob_depth=(0.2,0.3,0.3,0.2)):
     # Get the number of qubits of the hardware
-    service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder")
-    backend = service.backend(backend_name)
     n_qubits_hardware = backend.configuration().n_qubits
     # Determine number of qubits
     n_qubits = np.random.randint(3, n_qubits_hardware+1)
@@ -424,10 +420,8 @@ def Generate_random_circuit(backend_name,prob_depth=(0.2,0.3,0.3,0.2)):
     qc = random_circuit(n_qubits, depth)
     return qc
 
-def Output_circuit(circuit, sample_folder, backend_name):
+def Output_circuit(circuit, sample_folder, backend):
     #Decompose to basis gates
-    service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder")
-    backend = service.backend(backend_name)
     basis_gates = backend.configuration().basis_gates
     
     # Transpile the circuit to the backend's basis gates
