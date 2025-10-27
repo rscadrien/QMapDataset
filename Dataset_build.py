@@ -429,39 +429,30 @@ def Output_circuit(circuit, sample_folder, backend):
 
     n_log_qubits = transpiled_qc.num_qubits
 
-    #Counting the number of X gate for each qubit
+    #Counting the number of gates for each qubit
     gate = 'x'
     X_counts = np.zeros(n_log_qubits, dtype=int)
+    SX_counts = np.zeros(n_log_qubits, dtype=int)
+    RZ_counts = np.zeros(n_log_qubits, dtype=int)
+    ECR_counts = np.zeros((n_log_qubits, n_log_qubits), dtype=int)
+
+
     for instr in transpiled_qc.data:
-        if len(instr.qubits) == 1 and instr.name in gate:
+        if instr.name == 'x':
             qubit_index = transpiled_qc.find_bit(instr.qubits[0]).index
             X_counts[qubit_index] += 1
-    
-    #Counting the number of SX gate for each qubit
-    gate = 'sx'
-    SX_counts = np.zeros(n_log_qubits, dtype=int)
-    for instr in transpiled_qc.data:
-        if len(instr.qubits) == 1 and instr.name in gate:
+        elif instr.name == 'sx':
             qubit_index = transpiled_qc.find_bit(instr.qubits[0]).index
             SX_counts[qubit_index] += 1
-
-    #Counting the number of RZ gate for each qubit
-    gate = 'rz'
-    RZ_counts = np.zeros(n_log_qubits, dtype=int)
-    for instr in transpiled_qc.data:
-        if len(instr.qubits) == 1 and instr.name in gate:
+        elif instr.name == 'rz':
             qubit_index = transpiled_qc.find_bit(instr.qubits[0]).index
-            RZ_counts[qubit_index] += 1 
-
-    #Counting the number of ECR gate for each pair of qubits
-    gate = 'ecr'
-    ECR_counts = np.zeros((n_log_qubits, n_log_qubits), dtype=int)
-    for instr in transpiled_qc.data:
-        if len(instr.qubits) == 2 and instr.name in gate:
+            RZ_counts[qubit_index] += 1
+        elif instr.name == 'ecr':
             i = transpiled_qc.find_bit(instr.qubits[0]).index
             j = transpiled_qc.find_bit(instr.qubits[1]).index
             ECR_counts[i, j] += 1
-    #        two_counts[j, i] += 1  # symmetric, if your 2-qubit gate is undirected
+
+    # Convert ECR_counts to sparse representation
     nonzero_indices = np.nonzero(ECR_counts)
     nonzero_values = ECR_counts[nonzero_indices]
     # Store as a list of dictionaries
