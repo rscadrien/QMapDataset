@@ -43,12 +43,13 @@ def Databuild(n_samples, backend_name = 'ibm_brisbane',hard_probs=(0.65,0.35)
         print(f"Sample {sample_num} created at {sample_folder}")
 
 
-def Sampling_output_hardware(backend_name, sample_folder, hard_probs=(0.65,0.35)):
+def Sampling_output_hardware(backend_name, sample_folder, hard_probs=(0.65,0.35), max_attempts = 10):
     hard_tier = np.random.choice(['Real','Customized'],p=hard_probs)
 #    print(f"Selected hardware tier: {hard_tier}")
     if hard_tier == 'Real':
         # Load your saved IBM Quantum account
         service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder")
+        print(service.backends())
         backend = service.backend(backend_name)
         Output_real_hardware(backend,sample_folder,hard_tier)
     elif hard_tier == 'Customized':
@@ -58,7 +59,8 @@ def Sampling_output_hardware(backend_name, sample_folder, hard_probs=(0.65,0.35)
         
     
 def CustomizedBackend(backend_name, sample_folder,hard_tier):
-    service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder")
+    service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder", max_attempts = 10)
+    print(service.backends())
     backend = service.backend(backend_name)
     props = backend.properties()
     n_qubits = len(props.qubits)
@@ -275,7 +277,7 @@ def Generate_famous_circuit(backend,max_attempts=3):
         "dj": None,
         "ghz": None,
         "graphstate": None,
-        "grover": (3, 20),
+        "grover": (3, 10),
         "hhl": None,
         "qaoa": None,
         "qft": None,
@@ -283,7 +285,6 @@ def Generate_famous_circuit(backend,max_attempts=3):
         "qnn": None,
         "qpeexact": None,
         "qpeinexact": None,
-        "qwalk": None,
         "shor": (18, 18),
         "vqe_real_amp": None,
         "vqe_su2": None,
@@ -378,13 +379,13 @@ def Generate_random_circuit(backend,prob_depth=(0.2,0.3,0.3,0.2)):
     tier_depth = np.random.choice(['Shallow','Medium','Deep','Very_deep'], p=prob_depth)
 #    print(f"Selected depth tier: {tier_depth}")
     if tier_depth == 'Shallow':
-        depth = np.random.randint(5, 21)
+        depth = np.random.randint(5, 16)
     elif tier_depth == 'Medium':
-        depth = np.random.randint(21, 51)
+        depth = np.random.randint(16, 51)
     elif tier_depth == 'Deep':
-        depth = np.random.randint(51, 201)
+        depth = np.random.randint(51, 151)
     elif tier_depth == 'Very_deep':
-        depth = np.random.randint(201, 501) 
+        depth = np.random.randint(151, 401) 
     
 #    print(f"Depth of the random circuit: {depth}")
     algo_info.append(f"Depth: {depth}")
