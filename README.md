@@ -50,6 +50,7 @@ The code will create folders 'Sample_0', 'Sample_1', ..., each containing:
 - mapping.json.gz: logical-physical qubit mapping after transpilation
 
 ### hardware.json.gz
+```bash
 {
   "tier": "Real" or "Customized",
   "n_qubits": 5,
@@ -60,8 +61,9 @@ The code will create folders 'Sample_0', 'Sample_1', ..., each containing:
   "single_qubit_errors": {...},
   "multi_qubit_errors": [...]
 }
-
+```
 ### circuit.json.gz
+```bash
 {
   "circuit_tier": "Famous" or "Random",
   "algorithm_info": [...],
@@ -70,13 +72,16 @@ The code will create folders 'Sample_0', 'Sample_1', ..., each containing:
   "single_qubit_counts": {...},
   "two_qubit_counts": [...]
 }
+```
 
 ### mapping.json.gz
+```bash
 {
   "n_logical_qubits": 4,
   "n_physical_qubits": 5,
   "final_mapping": {"0": 2, "1": 0, "2": 3, "3": 1}
 }
+```
 
 ## Functions Overview
 - Databuild(n_samples, ...) – main function to generate multiple dataset samples
