@@ -10,13 +10,30 @@ import gzip
 from mqt.bench import get_benchmark, BenchmarkLevel
 from collections import defaultdict
 import concurrent.futures
+# =========================================================
+# Main function to generate a dataset of samples
+# =========================================================
 
 def Databuild(n_samples, backend_name = 'ibm_brisbane',hard_probs=(0.65,0.35)
               ,circuit_probs=(0.5,0.5),prob_depth=(0.2,0.3,0.3,0.2),save_path="../../Dataset"):
+    """
+    Generate n_samples of qubit mapping datasets. Each sample contains:
+      - A hardware configuration (real or customized)
+      - A quantum circuit (famous or random)
+      - Mapping from logical to physical qubits
+    
+    Parameters:
+        n_samples: number of new samples to generate
+        backend_name: IBM backend name
+        hard_probs: probabilities for choosing 'Real' or 'Customized' backend
+        circuit_probs: probabilities for choosing 'Famous' or 'Random' circuit
+        prob_depth: probability distribution for circuit depth tiers
+        save_path: folder where dataset is stored
+    """
     # Create main folder if it doesn't exist
     os.makedirs(save_path, exist_ok=True)
 
-     # Find all folders that match "Sample_n"
+    # Find all existing sample folders to continue numbering
     pattern = re.compile(r"Sample_(\d+)")
     samples = []
 
@@ -31,25 +48,29 @@ def Databuild(n_samples, backend_name = 'ibm_brisbane',hard_probs=(0.65,0.35)
     # Determine starting index
     start_n = max(samples) + 1 if samples else 0
     
-    # Create n_samples new folders and fill them
+    # Generate new samples
     for i in range(n_samples):
         sample_num = start_n + i
         sample_folder = os.path.join(save_path, f"Sample_{sample_num}")
         # Create new folder 
         os.makedirs(sample_folder, exist_ok=True)
+        # Sample hardware configuration
         backend = Sampling_output_hardware(backend_name,sample_folder,hard_probs)
+        # Sample quantum circuit
         qc = Sampling_output_circuit(backend,sample_folder,circuit_probs,prob_depth)
+        # Compute mapping from logical to physical qubits
         Output_mapping(backend, qc, sample_folder)
         print(f"Sample {sample_num} created at {sample_folder}")
 
 
-def Sampling_output_hardware(backend_name, sample_folder, hard_probs=(0.65,0.35), max_attempts = 10):
+def Sampling_output_hardware(backend_name, sample_folder, hard_probs=(0.65,0.35)):
+    """
+    Randomly select between real IBM backend or customized backend
+    """
     hard_tier = np.random.choice(['Real','Customized'],p=hard_probs)
-#    print(f"Selected hardware tier: {hard_tier}")
     if hard_tier == 'Real':
         # Load your saved IBM Quantum account
         service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder")
-        print(service.backends())
         backend = service.backend(backend_name)
         Output_real_hardware(backend,sample_folder,hard_tier)
     elif hard_tier == 'Customized':
@@ -57,15 +78,17 @@ def Sampling_output_hardware(backend_name, sample_folder, hard_probs=(0.65,0.35)
     
     return backend
         
+# =========================================================
+# Customize backend by permuting qubits and gate errors
+# =========================================================
     
 def CustomizedBackend(backend_name, sample_folder,hard_tier):
-    service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder", max_attempts = 10)
-    print(service.backends())
+    service = QiskitRuntimeService(channel="ibm_quantum_platform",instance="adevolder")
     backend = service.backend(backend_name)
     props = backend.properties()
     n_qubits = len(props.qubits)
     # --------------------------------------------------
-    # Extract qubit properties
+    # Extract qubit properties dynamically
     # --------------------------------------------------
     qubit_props = {name: np.zeros(n_qubits) for name in ["T1", "T2", "frequency", "anharmonicity", "readout_error","prob_meas0_prep1", "prob_meas1_prep0"]}
 
@@ -90,7 +113,7 @@ def CustomizedBackend(backend_name, sample_folder,hard_tier):
             multi_qubit_errors[gate_name].append(value)
 
     # --------------------------------------------------
-    # Deep copy backend and permute qubits
+    # Permute qubits randomly
     # --------------------------------------------------
     new_backend = copy.deepcopy(backend)
     perm = np.random.permutation(n_qubits)
@@ -108,7 +131,7 @@ def CustomizedBackend(backend_name, sample_folder,hard_tier):
         multi_qubit_errors[key] = np.random.permutation(multi_qubit_errors[key])
     
     # --------------------------------------------------
-    # Assign new values back to backend properties
+    # Assign permuted properties back to backend
     # --------------------------------------------------
     new_props = new_backend.properties()
 
@@ -180,7 +203,15 @@ def CustomizedBackend(backend_name, sample_folder,hard_tier):
 
     return new_backend
 
+# =========================================================
+# Save real IBM backend hardware properties
+# =========================================================
+
 def Output_real_hardware(backend, sample_folder, hard_tier):
+    """
+    Extract qubit and gate properties from a real IBM backend
+    and save as JSON
+    """
     props = backend.properties()
     n_qubits = len(props.qubits)
 
@@ -253,6 +284,9 @@ def Output_real_hardware(backend, sample_folder, hard_tier):
         json.dump(hardware_data, f, indent=2)
 
 def Sampling_output_circuit(backend, sample_folder,circuit_probs,prob_depth):
+    """
+    Generate either a famous or random quantum circuit
+    """
     # Choice of circuit size
     circuit_tier = np.random.choice(['Famous','Random'],p = circuit_probs)
 #    print(f"Selected circuit tier: {circuit_tier}") 
@@ -268,9 +302,15 @@ def Sampling_output_circuit(backend, sample_folder,circuit_probs,prob_depth):
     return circuit
 
 def Generate_famous_circuit(backend,max_attempts=3):
+    """
+    Generate a "famous" quantum circuit from MQT benchmarks.
+    Tries up to `max_attempts` to create a valid circuit compatible with the backend.
+    Returns a permuted version of the circuit and information about the algorithm.
+    """
     # --------------------------------------------------
-    # Algorithm list with custom constraints
-    # --------------------------------------------------
+    # Predefined algorithms and optional qubit constraints
+    # None = no constraint on number of qubits
+    # Tuple = (min_qubits, max_qubits)
     ALGORITHMS = {
         "ae": (3, 10),
         "bv": None,
@@ -368,6 +408,13 @@ def random_qubit_permutation(qc, seed=None):
     return qc_perm, k, perm
 
 def Generate_random_circuit(backend,prob_depth=(0.2,0.3,0.3,0.2)):
+    """
+    Generate a random quantum circuit compatible with the backend.
+    Randomly chooses:
+      - Number of qubits
+      - Circuit depth tier (Shallow, Medium, Deep, Very Deep)
+    Returns the circuit and metadata info.
+    """
     # Get the number of qubits of the hardware
     n_qubits_hardware = backend.configuration().n_qubits
     # Determine number of qubits
@@ -394,6 +441,11 @@ def Generate_random_circuit(backend,prob_depth=(0.2,0.3,0.3,0.2)):
     return qc, algo_info
 
 def Output_circuit(circuit, sample_folder, backend,circuit_tier,algo_info):
+    """
+    Transpile the circuit to the backend's basis gates and
+    count all gate occurrences (single and two-qubit).
+    Saves circuit info and gate counts as compressed JSON.
+    """
     #Decompose to basis gates
     basis_gates = backend.configuration().basis_gates
     
@@ -456,6 +508,10 @@ def Output_circuit(circuit, sample_folder, backend,circuit_tier,algo_info):
         json.dump(circuit_data, f, indent=2)
 
 def Output_mapping(backend, circuit, sample_folder):
+    """
+    Transpile circuit to backend to get optimized mapping of logical -> physical qubits.
+    Saves mapping info as compressed JSON.
+    """
     n_log_qubits = circuit.num_qubits
     n_phys_qubits = backend.configuration().n_qubits
     #transpile with highest optimization level to get mapping
