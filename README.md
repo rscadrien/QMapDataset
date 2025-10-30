@@ -33,7 +33,7 @@ pip install -r requirements.txt
 ```
 
 ## Usage
-A usage example is provided in Generate_dataset.py and in Notebook_datsetbuilding.ipynb.
+A usage example is provided in Generate_dataset.py.
 
 ## Input parameters
 - n_samples (int): Number of dataset samples to generate. Each sample will create a folder Sample_n containing hardware, circuit, and mapping JSON files.
