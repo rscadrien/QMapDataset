@@ -14,7 +14,7 @@ from collections import defaultdict
 # =========================================================
 
 def Databuild(n_samples, backend_name = 'ibm_brisbane',hard_probs=(0.65,0.35)
-              ,circuit_probs=(0.5,0.5),prob_depth=(0.2,0.3,0.3,0.2),save_path="../../Dataset"):
+              ,circuit_probs=(0.5,0.5),prob_depth=(0.25,0.4,0.3,0.05),save_path="../../Dataset"):
     """
     Generate n_samples of qubit mapping datasets. Each sample contains:
       - A hardware configuration (real or customized)
