@@ -9,7 +9,6 @@ import json
 import gzip
 from mqt.bench import get_benchmark, BenchmarkLevel
 from collections import defaultdict
-import concurrent.futures
 # =========================================================
 # Main function to generate a dataset of samples
 # =========================================================

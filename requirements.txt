@@ -1,0 +1,10 @@
+numpy
+qiskit
+qiskit-ibm-runtime
+os
+re
+copy
+json
+gzip
+mqt.bench
+collections
