@@ -3,7 +3,7 @@ from Dataset_build import Databuild
 # ---------------------------------
 # 1. Define dataset parameters
 # ---------------------------------
-n_samples = 2314               # number of samples to generate
+n_samples = 447               # number of samples to generate
 backend_name = "ibm_torino" # IBM backend to use
 hard_probs = (0.65, 0.35)       # probability of Real vs Customized backend
 circuit_probs = (0.5, 0.5)    # probability of Famous vs Random circuits
