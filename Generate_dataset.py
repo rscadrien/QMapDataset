@@ -4,7 +4,7 @@ from Dataset_build import Databuild
 # 1. Define dataset parameters
 # ---------------------------------
 n_samples = 1000               # number of samples to generate
-ibm_account = "adevolder" # IBM Quantum account instance
+ibm_account = "your IBM account instance" # IBM Quantum account instance
 backend_name = "ibm_marrakesh" # IBM backend to use
 hard_probs = (0.65, 0.35)       # probability of Real vs Customized backend
 circuit_probs = (0.5, 0.5)    # probability of Famous vs Random circuits
