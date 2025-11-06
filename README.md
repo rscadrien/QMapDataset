@@ -31,12 +31,20 @@ cd <repo_folder>
 ```bash
 pip install -r requirements.txt
 ```
-
+3. Get an IBM account instance
+```bash
+QiskitRuntimeService.save_account(
+    token="API_KEY",
+    instance="CRN",
+    set_as_default = True
+    )
+```
 ## Usage
 A usage example is provided in Generate_dataset.py.
 
 ## Input parameters
 - n_samples (int): Number of dataset samples to generate. Each sample will create a folder Sample_n containing hardware, circuit, and mapping JSON files.
+- ibm_account (str): Your IBM Quantum instance. If you don't have one, you need to initialize one with QiskitRuntimeService.save_account. (https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/qiskit-runtime-service)
 - backend_name (str): Name of the IBM Quantum backend to use for circuit transpilation and hardware properties.
 - hard_probs (tuple of 2 floats): Probabilities for selecting real vs. customized backend. The default value is (0.65,0.35), i.e a 65% chance for real backend and 35% for customized.
 - circuit_probs (tuple of 2 floats): Probabilities for selecting famous vs. random circuit. The default value is (0.5,0.5).
