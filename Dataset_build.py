@@ -70,7 +70,12 @@ def Sampling_output_hardware(ibm_account,backend_name, sample_folder, hard_probs
     hard_tier = np.random.choice(['Real','Customized'],p=hard_probs)
     if hard_tier == 'Real':
         # Load your saved IBM Quantum account
-        service = QiskitRuntimeService(channel="ibm_quantum_platform",instance=ibm_account)
+        try:
+            service = QiskitRuntimeService(channel="ibm_quantum_platform",instance=ibm_account) 
+        except Exception as e:
+            raise RuntimeError(
+            "Error loading IBM Quantum account. Please verify that you are using the correct IBM instance, or initialize a new account using QiskitRuntimeService.save_account()."
+            ) from None
         backend = service.backend(backend_name)
         Output_real_hardware(backend,sample_folder,hard_tier)
     elif hard_tier == 'Customized':
@@ -83,7 +88,13 @@ def Sampling_output_hardware(ibm_account,backend_name, sample_folder, hard_probs
 # =========================================================
     
 def CustomizedBackend(ibm_account,backend_name, sample_folder,hard_tier):
-    service = QiskitRuntimeService(channel="ibm_quantum_platform",instance=ibm_account)
+    try:
+        service = QiskitRuntimeService(channel="ibm_quantum_platform",instance=ibm_account) 
+    except Exception as e:
+        raise RuntimeError(
+        "Error loading IBM Quantum account. Please verify that you are using the correct IBM instance, or initialize a new account using QiskitRuntimeService.save_account()."
+        ) from None
+
     backend = service.backend(backend_name)
     props = backend.properties()
     n_qubits = len(props.qubits)
