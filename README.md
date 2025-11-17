@@ -1,6 +1,6 @@
 # QMapDataset
 
-**QMapDataset** is a Python package to generate datasets for **qubit mapping** and **circuit compilation** studies on quantum hardware. It allows creating datasets for real IBM Quantum backends as well as custom “scrambled” backends, storing circuits, hardware properties, and logical-to-physical qubit mappings in a compressed, JSON-friendly format. This dataset is particularly useful for **machine learning research on qubit mapping and transpilation optimization**.
+**QMapDataset** is a Python code to generate datasets for **qubit mapping** and **circuit compilation** studies on quantum hardware. It allows creating datasets for real IBM Quantum backends as well as custom “scrambled” backends, storing circuits, hardware properties, and logical-to-physical qubit mappings in a compressed, JSON-friendly format. This dataset is particularly useful for **machine learning research on qubit mapping and transpilation optimization**.
 
 ---
 
