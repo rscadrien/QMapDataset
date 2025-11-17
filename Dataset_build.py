@@ -2,6 +2,7 @@ import numpy as np
 import qiskit
 from qiskit_ibm_runtime import QiskitRuntimeService
 from qiskit.circuit.random import random_circuit
+from qiskit_ibm_runtime import fake_provider
 import os
 import re
 import copy
@@ -13,7 +14,7 @@ from collections import defaultdict
 # Main function to generate a dataset of samples
 # =========================================================
 
-def Databuild(n_samples, ibm_account, backend_name = 'ibm_brisbane',hard_probs=(0.65,0.35)
+def Databuild(n_samples, ibm_account, backend_name, fake = False, hard_probs=(0.65,0.35)
               ,circuit_probs=(0.5,0.5),prob_depth=(0.25,0.4,0.3,0.05),save_path="../../Dataset"):
     """
     Generate n_samples of qubit mapping datasets. Each sample contains:
@@ -24,7 +25,8 @@ def Databuild(n_samples, ibm_account, backend_name = 'ibm_brisbane',hard_probs=(
     Parameters:
         n_samples: number of new samples to generate
         ibm_account: IBM Quantum account instance
-        backend_name: IBM backend name
+        fake: use fake backend (default: False)
+        backend_name: IBM backend name. If fake=True, must be a valid fake backend name(For example: 'FakeBrisbaneV2')
         hard_probs: probabilities for choosing 'Real' or 'Customized' backend
         circuit_probs: probabilities for choosing 'Famous' or 'Random' circuit
         prob_depth: probability distribution for circuit depth tiers
@@ -55,7 +57,7 @@ def Databuild(n_samples, ibm_account, backend_name = 'ibm_brisbane',hard_probs=(
         # Create new folder 
         os.makedirs(sample_folder, exist_ok=True)
         # Sample hardware configuration
-        backend = Sampling_output_hardware(ibm_account,backend_name,sample_folder,hard_probs)
+        backend = Sampling_output_hardware(ibm_account,backend_name,fake,sample_folder,hard_probs)
         # Sample quantum circuit
         qc = Sampling_output_circuit(backend,sample_folder,circuit_probs,prob_depth)
         # Compute mapping from logical to physical qubits
@@ -63,12 +65,37 @@ def Databuild(n_samples, ibm_account, backend_name = 'ibm_brisbane',hard_probs=(
         print(f"Sample {sample_num} created at {sample_folder}")
 
 
-def Sampling_output_hardware(ibm_account,backend_name, sample_folder, hard_probs=(0.65,0.35)):
+def Sampling_output_hardware(ibm_account,backend_name, fake, sample_folder, hard_probs=(0.65,0.35)):
     """
     Randomly select between real IBM backend or customized backend
     """
     hard_tier = np.random.choice(['Real','Customized'],p=hard_probs)
     if hard_tier == 'Real':
+        if fake == False:
+            # Load your saved IBM Quantum account
+            try:
+                service = QiskitRuntimeService(channel="ibm_quantum_platform",instance=ibm_account) 
+            except Exception as e:
+                raise RuntimeError(
+                "Error loading IBM Quantum account. Please verify that you are using the correct IBM instance, or initialize a new account using QiskitRuntimeService.save_account()."
+                ) from None
+            backend = service.backend(backend_name)
+        else:
+            FakeClass = getattr(fake_provider, backend_name)
+            backend = FakeClass()
+        
+        Output_real_hardware(backend,sample_folder,hard_tier)
+    elif hard_tier == 'Customized':
+        backend = CustomizedBackend(ibm_account,backend_name, fake, sample_folder,hard_tier)
+    
+    return backend
+        
+# =========================================================
+# Customize backend by permuting qubits and gate errors
+# =========================================================
+    
+def CustomizedBackend(ibm_account,backend_name, fake, sample_folder,hard_tier):
+    if fake == False:
         # Load your saved IBM Quantum account
         try:
             service = QiskitRuntimeService(channel="ibm_quantum_platform",instance=ibm_account) 
@@ -77,25 +104,10 @@ def Sampling_output_hardware(ibm_account,backend_name, sample_folder, hard_probs
             "Error loading IBM Quantum account. Please verify that you are using the correct IBM instance, or initialize a new account using QiskitRuntimeService.save_account()."
             ) from None
         backend = service.backend(backend_name)
-        Output_real_hardware(backend,sample_folder,hard_tier)
-    elif hard_tier == 'Customized':
-        backend = CustomizedBackend(ibm_account,backend_name,sample_folder,hard_tier)
-    
-    return backend
-        
-# =========================================================
-# Customize backend by permuting qubits and gate errors
-# =========================================================
-    
-def CustomizedBackend(ibm_account,backend_name, sample_folder,hard_tier):
-    try:
-        service = QiskitRuntimeService(channel="ibm_quantum_platform",instance=ibm_account) 
-    except Exception as e:
-        raise RuntimeError(
-        "Error loading IBM Quantum account. Please verify that you are using the correct IBM instance, or initialize a new account using QiskitRuntimeService.save_account()."
-        ) from None
+    else:
+        FakeClass = getattr(fake_provider, backend_name)
+        backend = FakeClass()
 
-    backend = service.backend(backend_name)
     props = backend.properties()
     n_qubits = len(props.qubits)
     # --------------------------------------------------
