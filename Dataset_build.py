@@ -199,9 +199,16 @@ def CustomizedBackend(ibm_account,backend_name, fake, sample_folder,hard_tier):
     # --------------------------------------------------
     # Create hardware JSON
     # --------------------------------------------------
+    try:
+        processor = backend.configuration().processor_type['family']
+        revision = backend.configuration().processor_type['revision']
+    except Exception:
+        processor = "Unknown"
+        revision = "Unknown"
+    
     hardware_data = {
         "tier": hard_tier,
-        "processor_type": f"{backend.configuration().processor_type['family']} {backend.configuration().processor_type['revision']}",
+        "processor_type": f"{processor} {revision}",
         "n_qubits": n_qubits,
         "basis_gates": backend.configuration().basis_gates,
         "coupling_map": backend.configuration().coupling_map,
@@ -281,9 +288,17 @@ def Output_real_hardware(backend, sample_folder, hard_tier):
     # --------------------------------------------------
     # Build final hardware dictionary
     # --------------------------------------------------
+    try:
+        processor = backend.configuration().processor_type['family']
+        revision = backend.configuration().processor_type['revision']
+    except Exception:
+        processor = "Unknown"
+        revision = "Unknown"
+    
+
     hardware_data = {
         "tier": hard_tier,
-        "processor_type": f"{backend.configuration().processor_type['family']} {backend.configuration().processor_type['revision']}",
+        "processor_type": f"{processor} {revision}",
         "n_qubits": n_qubits,
         "basis_gates": backend.configuration().basis_gates,
         "coupling_map": backend.configuration().coupling_map,
@@ -356,7 +371,9 @@ def Generate_famous_circuit(backend,max_attempts=3):
     }
     # Get the number of qubits of the hardware
     n_qubits_hardware = backend.configuration().n_qubits
-    
+    # Remove 'shor' if the hardware has less than 18 qubits
+    if n_qubits_hardware < 18:
+        ALGORITHMS.pop("shor", None)  # pop with default avoids KeyError if already missing
     for attempt in range(max_attempts):
         # Select a random algorithm
         algo = np.random.choice(list(ALGORITHMS.keys())) 
@@ -367,9 +384,9 @@ def Generate_famous_circuit(backend,max_attempts=3):
             n_qubits = np.random.randint(3, n_qubits_hardware)
         else:
             min_qubits, max_qubits = constraints
+            min_qubits = max(min_qubits, 3)
             max_qubits = min(max_qubits, n_qubits_hardware)
             n_qubits = np.random.randint(min_qubits, max_qubits + 1)
-    
     
         try:
             qc = get_benchmark(algo, circuit_size=n_qubits, level=BenchmarkLevel.INDEP)
