@@ -1,6 +1,6 @@
 # QMapDataset
 
-**QMapDataset** is a Python code to generate datasets for **qubit mapping** and **circuit compilation** studies on quantum hardware. It allows creating datasets for real IBM Quantum backends as well as custom “scrambled” backends, storing circuits, hardware properties, and logical-to-physical qubit mappings in a compressed, JSON-friendly format. This dataset is particularly useful for **machine learning research on qubit mapping and transpilation optimization**.
+**QMapDataset** is a Python code to generate datasets for **qubit mapping** and **circuit compilation** studies on quantum hardware. It allows creating datasets for real and Fake IBM Quantum backends, storing circuits, hardware properties, and logical-to-physical qubit mappings in a compressed, JSON-friendly format. This dataset is particularly useful for **machine learning research on qubit mapping and transpilation optimization**.
 
 ---
 
@@ -8,7 +8,7 @@
 
 - Generate **famous quantum circuits** (e.g., Grover, QFT, Shor) or fully **random circuits**.
 - Generate hardware backends:  
-  - **Real IBM Quantum backends**  
+  - **Real/Fake IBM Quantum backends**  
   - **Customized backends** with permuted qubit properties and gate errors
 - Automatically store for each sample:  
   - Gate counts (single- and two-qubit)  
@@ -46,6 +46,8 @@ A usage example is provided in Generate_dataset.py.
 - n_samples (int): Number of dataset samples to generate. Each sample will create a folder Sample_n containing hardware, circuit, and mapping JSON files.
 - ibm_account (str): Your IBM Quantum instance. If you don't have one, you need to initialize one with QiskitRuntimeService.save_account. (https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/qiskit-runtime-service)
 - backend_name (str): Name of the IBM Quantum backend to use for circuit transpilation and hardware properties.
+  If a fake backend is used, you must give the name of fake backend, like "FakeManhattanV2", that you can find on https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/fake-provider
+- fake (bin): True if you use a fake backend. The default value is False. 
 - hard_probs (tuple of 2 floats): Probabilities for selecting real vs. customized backend. The default value is (0.65,0.35), i.e a 65% chance for real backend and 35% for customized.
 - circuit_probs (tuple of 2 floats): Probabilities for selecting famous vs. random circuit. The default value is (0.5,0.5).
 - prob_depth (tuple of 4 floats): Probability distribution for random circuit depth tiers: (Shallow, Medium, Deep, Very_Deep). The default value is (0.25,0.4,0.3,0.05).
